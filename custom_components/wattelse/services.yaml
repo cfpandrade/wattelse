@@ -1,0 +1,27 @@
+set_total:
+  name: Set total
+  description: >-
+    Overwrite the running total of a WattElse cost sensor. Use it to seed the
+    integration so it lines up with a bill you have already paid, or to correct a
+    total after a period when Home Assistant was down.
+  fields:
+    entity_id:
+      name: Cost sensor
+      description: The WattElse cost sensor to overwrite.
+      required: true
+      selector:
+        entity:
+          integration: wattelse
+          domain: sensor
+          device_class: monetary
+          multiple: true
+    value:
+      name: Value
+      description: The new running total, in the configured currency.
+      required: true
+      example: 157.26
+      selector:
+        number:
+          min: 0
+          step: any
+          mode: box

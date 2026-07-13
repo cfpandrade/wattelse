@@ -1,0 +1,54 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "WattElse",
+        "description": "Everything on your electricity bill that isn't kilowatt-hours. Leave a charge at 0 and it won't be created.",
+        "data": {
+          "name": "Name",
+          "currency": "Currency",
+          "standing_charge": "Standing charge (per day)",
+          "levy_name": "Levy name",
+          "levy_amount": "Levy (per month)",
+          "vat_rate": "VAT rate (%)",
+          "vat_sources": "Apply VAT to these cost sensors",
+          "show_rate_in_name": "Show the rate in the source name"
+        },
+        "data_description": {
+          "standing_charge": "The fixed daily charge, excluding VAT. It accrues continuously.",
+          "levy_amount": "A flat monthly fee such as Ireland's PSO levy, excluding VAT. It is charged in full when the month rolls over, never spread across the days, because a monthly fee prorated by day can never be right for both 30- and 31-day billing cycles.",
+          "vat_sources": "Your grid consumption cost sensors. The standing charge and the levy are taxed automatically. Leave the price of your kWh set to the rate WITHOUT VAT so the tax shows up as its own line, exactly like on the bill.",
+          "show_rate_in_name": "Puts the rate into the name shown on the Energy dashboard, so the Sources list documents the tariff it is charging you."
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "WattElse",
+        "description": "Changing a rate only affects what accrues from now on. What you were billed in the past stays as it was billed.",
+        "data": {
+          "name": "Name",
+          "currency": "Currency",
+          "standing_charge": "Standing charge (per day)",
+          "levy_name": "Levy name",
+          "levy_amount": "Levy (per month)",
+          "vat_rate": "VAT rate (%)",
+          "vat_sources": "Apply VAT to these cost sensors",
+          "show_rate_in_name": "Show the rate in the source name"
+        }
+      }
+    }
+  },
+  "services": {
+    "set_total": {
+      "name": "Set total",
+      "description": "Overwrite the running total of a WattElse cost sensor.",
+      "fields": {
+        "entity_id": { "name": "Cost sensor", "description": "The WattElse cost sensor to overwrite." },
+        "value": { "name": "Value", "description": "The new running total, in the configured currency." }
+      }
+    }
+  }
+}
