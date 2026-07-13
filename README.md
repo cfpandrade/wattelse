@@ -77,14 +77,27 @@ doesn't get a levy row.
 | Field | What it is |
 |---|---|
 | **Standing charge** | The fixed daily charge, **excluding tax**. Accrues continuously. |
-| **Levy** | A flat monthly fee, **excluding tax**. Name it whatever your bill calls it: PSO levy, green levy, network fee, meter rental. |
+| **Levy** | A flat monthly fee, **excluding tax**. Defaults to Ireland's *PSO Levy*; name it whatever your bill calls it — green levy, network fee, meter rental. |
 | **VAT rate** | The percentage your supplier applies. Set it to `0` if electricity isn't taxed where you are, and no VAT line is created. |
-| **Apply VAT to** | Your grid consumption cost sensors. The standing charge and the levy are taxed automatically — don't list them here. |
+| **Apply VAT to** | Optional. Leave it empty — see below. |
 | **Show rate in name** | Renders the rate into the source name, so the Sources list documents the tariff it's charging you. |
+
+### Who gets taxed
+
+You don't have to answer that. WattElse reads your Energy dashboard and taxes **every grid
+consumption source** it finds there — day, night, peak, and anything else you've added —
+along with the standing charge and the levy.
+
+The **export credit is never taxed**. Money coming back to you isn't a purchase, and
+suppliers apply 0% to it, which is why it sits *after* the VAT line on the bill.
+
+Fill in *Apply VAT to* only if you want to override that, for instance when one of your
+sources is billed tax-free.
 
 ### One thing you must do
 
-**Set your kWh prices to the rate *without* tax** in the Energy dashboard.
+**Set every kWh price to the rate *without* tax** in the Energy dashboard — peak, off-peak,
+night, all of them.
 
 WattElse adds the tax as its own line, exactly like your bill does. If you leave your kWh
 prices tax-inclusive you'll be taxed twice. Bills quote the net rate anyway, so this

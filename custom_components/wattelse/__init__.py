@@ -18,7 +18,11 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 import voluptuous as vol
 
 from .const import ATTR_VALUE, DOMAIN, SERVICE_SET_TOTAL
-from .energy_dashboard import async_add_sources, async_remove_sources
+from .energy_dashboard import (
+    async_add_sources,
+    async_detect_vat_sources,
+    async_remove_sources,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,7 +53,12 @@ def _entity_ids(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, str]:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up WattElse from a config entry."""
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {}
+    # Which cost sensors VAT is charged on. The user can name them explicitly, but by
+    # default we read them off the Energy dashboard: every grid consumption source, and
+    # never the export credit. Detected here, before the sensors are built, because the
+    # VAT sensor needs the list the moment it is created.
+    detected = await async_detect_vat_sources(hass)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {"detected_vat_sources": detected}
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

@@ -159,3 +159,60 @@ async def async_remove_sources(hass: HomeAssistant, energy_entities: list[str]) 
         return
 
     _LOGGER.info("Removed %d charge(s) from the Energy dashboard", len(sources) - len(kept))
+
+
+async def async_detect_vat_sources(hass: HomeAssistant) -> list[str]:
+    """Find the cost sensors that VAT should be charged on.
+
+    VAT is charged on what you *consume from the grid*, and on this integration's own
+    fixed charges. It is NOT charged on what you export: an export credit is money
+    coming back to you, and suppliers apply 0% to it. So we take every grid source's
+    cost sensor and deliberately never touch `stat_energy_to` / `stat_compensation`.
+
+    Our own phantom sources are skipped -- the standing charge and the levy feed VAT
+    directly, in code, and picking them up here again would tax them twice.
+
+    Home Assistant creates a cost sensor per priced grid source named after the energy
+    statistic, so `sensor.foo` gets `sensor.foo_cost`. An explicit `stat_cost` on the
+    source wins over that convention.
+    """
+    from homeassistant.helpers import entity_registry as er  # noqa: PLC0415
+
+    from .const import DOMAIN  # noqa: PLC0415
+
+    manager = await _get_manager(hass)
+    if manager is None or manager.data is None:
+        return []
+
+    registry = er.async_get(hass)
+
+    def is_ours(entity_id: str | None) -> bool:
+        if not entity_id:
+            return False
+        entry = registry.async_get(entity_id)
+        return entry is not None and entry.platform == DOMAIN
+
+    found: list[str] = []
+    for source in manager.data.get("energy_sources") or []:
+        if source.get("type") != "grid":
+            continue
+        flows = (
+            source.get("flow_from")
+            if "flow_from" in source
+            else [source] if source.get("stat_energy_from") else []
+        )
+        for flow in flows or []:
+            energy = flow.get("stat_energy_from")
+            if not energy or is_ours(energy):
+                continue
+            cost = flow.get("stat_cost")
+            if not cost and (
+                flow.get("number_energy_price") is not None
+                or flow.get("entity_energy_price")
+            ):
+                cost = f"{energy}_cost"
+            if cost and not is_ours(cost) and cost not in found:
+                found.append(cost)
+
+    _LOGGER.debug("VAT will be charged on: %s", found)
+    return found

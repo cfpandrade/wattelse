@@ -356,8 +356,15 @@ async def async_setup_entry(
     levy = float(opts.get(CONF_LEVY_AMOUNT) or 0)
     levy_name = opts.get(CONF_LEVY_NAME) or DEFAULT_LEVY_NAME
     vat = float(opts.get(CONF_VAT_RATE) or 0)
-    vat_sources: list[str] = list(opts.get(CONF_VAT_SOURCES) or [])
     show_rate = opts.get(CONF_SHOW_RATE_IN_NAME, True)
+
+    store = hass.data[DOMAIN][entry.entry_id]
+    # An explicit choice wins; otherwise VAT lands on every grid consumption source that
+    # the Energy dashboard knows about. Never on the export credit -- that is money
+    # coming back to you, and suppliers charge 0% on it.
+    vat_sources: list[str] = list(
+        opts.get(CONF_VAT_SOURCES) or store.get("detected_vat_sources") or []
+    )
 
     device = DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
@@ -421,6 +428,5 @@ async def async_setup_entry(
     # Entity ids are assigned while the entities are being added, so they are not
     # readable yet here. __init__ resolves them from the entity registry once this
     # platform has finished setting up, and only then touches the Energy dashboard.
-    store = hass.data[DOMAIN][entry.entry_id]
     store["cost_sensors"] = costs
     store["kinds"] = kinds

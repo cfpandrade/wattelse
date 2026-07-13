@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "WattElse",
-        "description": "Everything on your electricity bill that isn't kilowatt-hours. Leave a charge at 0 and it won't be created.",
+        "description": "Everything on your electricity bill that isn't kilowatt-hours.\n\n**Enter every kWh price in the Energy dashboard WITHOUT VAT** -- peak, off-peak, night and any other rate. WattElse adds the VAT as its own line, exactly like your bill does, so a tax-inclusive price would be taxed twice.\n\nVAT is charged on every grid consumption source on the Energy dashboard, plus the standing charge and the levy. Never on the export credit -- money coming back to you is not taxed.\n\nLeave a charge at 0 and it won't be created.",
         "data": {
           "name": "Name",
           "currency": "Currency",
@@ -11,13 +11,13 @@
           "levy_name": "Levy name",
           "levy_amount": "Levy (per month)",
           "vat_rate": "VAT rate (%)",
-          "vat_sources": "Apply VAT to these cost sensors",
+          "vat_sources": "Apply VAT to (optional)",
           "show_rate_in_name": "Show the rate in the source name"
         },
         "data_description": {
           "standing_charge": "The fixed daily charge, excluding VAT. It accrues continuously.",
           "levy_amount": "A flat monthly fee such as Ireland's PSO levy, excluding VAT. It is charged in full when the month rolls over, never spread across the days, because a monthly fee prorated by day can never be right for both 30- and 31-day billing cycles.",
-          "vat_sources": "Your grid consumption cost sensors. The standing charge and the levy are taxed automatically. Leave the price of your kWh set to the rate WITHOUT VAT so the tax shows up as its own line, exactly like on the bill.",
+          "vat_sources": "Leave this empty and WattElse works it out on its own: it taxes every grid consumption source on the Energy dashboard, and never the export credit. Only fill it in if you want to override that -- for instance if one of your sources is billed tax-free.",
           "show_rate_in_name": "Puts the rate into the name shown on the Energy dashboard, so the Sources list documents the tariff it is charging you."
         }
       }
@@ -27,7 +27,7 @@
     "step": {
       "init": {
         "title": "WattElse",
-        "description": "Changing a rate only affects what accrues from now on. What you were billed in the past stays as it was billed.",
+        "description": "Changing a rate only affects what accrues from now on. What you were billed in the past stays as it was billed. Remember that your kWh prices must stay VAT-free.",
         "data": {
           "name": "Name",
           "currency": "Currency",
@@ -35,8 +35,11 @@
           "levy_name": "Levy name",
           "levy_amount": "Levy (per month)",
           "vat_rate": "VAT rate (%)",
-          "vat_sources": "Apply VAT to these cost sensors",
+          "vat_sources": "Apply VAT to (optional)",
           "show_rate_in_name": "Show the rate in the source name"
+        },
+        "data_description": {
+          "vat_sources": "Leave this empty and WattElse works it out on its own: it taxes every grid consumption source on the Energy dashboard, and never the export credit. Only fill it in if you want to override that -- for instance if one of your sources is billed tax-free."
         }
       }
     }
@@ -46,8 +49,14 @@
       "name": "Set total",
       "description": "Overwrite the running total of a WattElse cost sensor.",
       "fields": {
-        "entity_id": { "name": "Cost sensor", "description": "The WattElse cost sensor to overwrite." },
-        "value": { "name": "Value", "description": "The new running total, in the configured currency." }
+        "entity_id": {
+          "name": "Cost sensor",
+          "description": "The WattElse cost sensor to overwrite."
+        },
+        "value": {
+          "name": "Value",
+          "description": "The new running total, in the configured currency."
+        }
       }
     }
   }

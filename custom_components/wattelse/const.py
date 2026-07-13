@@ -19,7 +19,7 @@ CONF_MANAGE_ENERGY_DASHBOARD: Final = "manage_energy_dashboard"
 
 DEFAULT_NAME: Final = "Electricity"
 DEFAULT_CURRENCY: Final = "EUR"
-DEFAULT_LEVY_NAME: Final = "Levy"
+DEFAULT_LEVY_NAME: Final = "PSO Levy"
 
 # Charge kinds -> one phantom energy sensor + one cost sensor each
 KIND_STANDING: Final = "standing_charge"
