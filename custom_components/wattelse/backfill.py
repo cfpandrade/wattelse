@@ -72,10 +72,21 @@ async def _consumption_per_hour(
             if total is None:
                 continue
             if previous is not None:
-                when = dt_util.utc_from_timestamp(row["start"] / 1000)
+                when = dt_util.utc_from_timestamp(_epoch_seconds(row["start"]))
                 per_hour[when] = per_hour.get(when, 0.0) + (total - previous)
             previous = total
     return per_hour
+
+
+def _epoch_seconds(start: float) -> float:
+    """Read a statistics row's start as epoch seconds.
+
+    The recorder's own function hands out seconds, while the WebSocket API hands out
+    milliseconds -- and reading one as the other silently lands every row in 1970, which
+    matches no hour we are looking for, so the consumption reads as zero and only the
+    fixed charges get taxed. Anything past the year 5138 is milliseconds.
+    """
+    return start / 1000 if start > 1e11 else start
 
 
 def _import(

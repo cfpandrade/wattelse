@@ -14,6 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant import loader
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.storage import Store
 import voluptuous as vol
@@ -49,6 +50,12 @@ SET_TOTAL_SCHEMA = vol.Schema(
         vol.Required(ATTR_VALUE): vol.Coerce(float),
     }
 )
+
+
+def integration_version(hass: HomeAssistant) -> str:
+    """Our own version, so an upgrade can decide to redo work the old code got wrong."""
+    integration = loader.async_get_loaded_integration(hass, DOMAIN)
+    return integration.version and str(integration.version) or "0"
 
 
 def _entity_ids(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, str]:
@@ -108,12 +115,30 @@ async def _async_backfill_once(
     """
     opts = {**entry.data, **entry.options}
     start_date = opts.get(CONF_START_DATE)
-    if not start_date:
-        return
-
     store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
     done = await store.async_load() or {}
-    if done.get(entry.entry_id) == start_date:
+
+    if not start_date:
+        # No date means no history is wanted. Forget any we wrote before, so that setting
+        # a date again later actually rebuilds rather than being taken for a repeat.
+        if done.pop(entry.entry_id, None) is not None:
+            await store.async_save(done)
+        return
+
+    # What was backfilled depends on the date, the rates it was computed from, and the
+    # version of the code that computed it -- so a rate change or an upgrade that fixes
+    # the maths rewrites the history, while a plain restart does not.
+    recipe = "|".join(
+        str(x)
+        for x in (
+            integration_version(hass),
+            start_date,
+            opts.get(CONF_STANDING_CHARGE),
+            opts.get(CONF_LEVY_AMOUNT),
+            opts.get(CONF_VAT_RATE),
+        )
+    )
+    if done.get(entry.entry_id) == recipe:
         return
 
     totals = await async_backfill(
@@ -135,7 +160,7 @@ async def _async_backfill_once(
         if sensor := sensors.get(kind):
             sensor.set_total(total)
 
-    done[entry.entry_id] = start_date
+    done[entry.entry_id] = recipe
     await store.async_save(done)
 
 
