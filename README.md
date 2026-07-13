@@ -104,18 +104,14 @@ suppliers apply 0% to it, which is why it sits *after* the VAT line on the bill.
 Fill in *Apply VAT to* only if you want to override that, for instance when one of your
 sources is billed tax-free.
 
-### One thing you must do
-
-**Set every kWh price to the rate *without* tax** in the Energy dashboard — peak, off-peak,
-night, all of them.
-
-WattElse adds the tax as its own line, exactly like your bill does. If you leave your kWh
-prices tax-inclusive you'll be taxed twice. Bills quote the net rate anyway, so this
-usually just means copying the number straight off the bill.
+What it taxes is the *net* price, which is why every kWh price has to be entered without
+VAT. Bills quote the net rate anyway, so that usually just means copying the number
+straight off the bill — and if you leave the price tax-inclusive, the tax is counted
+twice.
 
 ## Design notes
 
-Two decisions that are less obvious than they look, and that you'll be glad of later.
+Three decisions that are less obvious than they look, and that you'll be glad of later.
 
 **Charges accrue incrementally, not from a start date.** The naive way to build a standing
 charge sensor is `(now - install_date) × rate`. It works right up until the day the rate
