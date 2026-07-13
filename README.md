@@ -83,6 +83,15 @@ doesn't get a levy row.
 | **Show rate in name** | Renders the rate into the source name, so the Sources list documents the tariff it's charging you. |
 | **Charges start on** | Optional. The day your tariff started — WattElse rebuilds the history from there. See below. |
 
+> [!IMPORTANT]
+> Three things decide whether the dashboard ends up matching your bill:
+>
+> 1. **Every kWh price must be entered without VAT** — peak, off-peak, night, all of them.
+>    WattElse adds the tax as its own line, so a tax-inclusive price is taxed twice.
+> 2. **Set _Charges start on_** to the day your tariff began, or the charges start at zero
+>    today and no past billing period will add up.
+> 3. **The export credit is never taxed**, and you don't have to configure that.
+
 ### Who gets taxed
 
 You don't have to answer that. WattElse reads your Energy dashboard and taxes **every grid
@@ -124,6 +133,13 @@ always contain exactly one month boundary, so they always get exactly one levy.
 The same reasoning applies to VAT: it taxes each *increment* as it happens, not the running
 total. If the VAT rate changes, past tax stays at the rate you were actually charged.
 
+**Backfilled statistics carry a state, not just a sum.** For a `total` sensor the recorder
+works out each new hour as `previous sum + (new state − old state)`, and these sensors'
+state *is* their running total. Import only the sums and the very first compile after a
+restart writes a single step the size of the entire backfill — a spike in the middle of
+your dashboard. Writing both lines the history up with the live sensor, so no manual sum
+adjustment is ever needed.
+
 ## About small differences
 
 Expect the dashboard to land close to the bill, not exactly on it. Suppliers round every
@@ -140,6 +156,8 @@ integration:
   figure, and no amount of correct pricing will fix that.
 - **The billing period isn't what you assumed.** Bills rarely run from the 1st to the last
   day of the month. Select the exact dates printed on the bill.
+- **You never set a start date.** The charges then begin at zero on the day you installed
+  the integration, so any period before that is missing its standing charge, levy and VAT.
 - **The bill has a line WattElse doesn't model** — a discount, a credit, a one-off fee.
 
 ## Backfilling history
