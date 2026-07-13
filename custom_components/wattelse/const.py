@@ -15,6 +15,7 @@ CONF_LEVY_NAME: Final = "levy_name"
 CONF_VAT_RATE: Final = "vat_rate"
 CONF_VAT_SOURCES: Final = "vat_sources"
 CONF_SHOW_RATE_IN_NAME: Final = "show_rate_in_name"
+CONF_START_DATE: Final = "start_date"
 CONF_MANAGE_ENERGY_DASHBOARD: Final = "manage_energy_dashboard"
 
 DEFAULT_NAME: Final = "Electricity"
@@ -29,6 +30,11 @@ KIND_VAT: Final = "vat"
 # How often the time-based charges accrue. One minute keeps the hourly
 # statistics smooth without putting any real load on the event loop.
 ACCRUAL_INTERVAL_MINUTES: Final = 1
+
+# Where the record of what has already been backfilled lives, so a restart does not
+# rewrite history it has written before.
+STORAGE_KEY: Final = f"{DOMAIN}.backfill"
+STORAGE_VERSION: Final = 1
 
 SERVICE_SET_TOTAL: Final = "set_total"
 ATTR_VALUE: Final = "value"

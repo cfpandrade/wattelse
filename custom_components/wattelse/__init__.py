@@ -15,9 +15,24 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers.storage import Store
 import voluptuous as vol
 
-from .const import ATTR_VALUE, DOMAIN, SERVICE_SET_TOTAL
+from .backfill import async_backfill
+from .const import (
+    ATTR_VALUE,
+    CONF_CURRENCY,
+    CONF_LEVY_AMOUNT,
+    CONF_STANDING_CHARGE,
+    CONF_START_DATE,
+    CONF_VAT_RATE,
+    CONF_VAT_SOURCES,
+    DEFAULT_CURRENCY,
+    DOMAIN,
+    SERVICE_SET_TOTAL,
+    STORAGE_KEY,
+    STORAGE_VERSION,
+)
 from .energy_dashboard import (
     async_add_sources,
     async_detect_vat_sources,
@@ -72,9 +87,56 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if pairs:
         await async_add_sources(hass, pairs)
 
+    await _async_backfill_once(hass, entry, ids, detected)
+
     entry.async_on_unload(entry.add_update_listener(_async_reload))
     _async_register_services(hass)
     return True
+
+
+async def _async_backfill_once(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    ids: dict[str, str],
+    detected: list[str],
+) -> None:
+    """Rebuild the charge history, if a start date is set and we haven't already.
+
+    Writing the same history twice is harmless -- the rows are replaced, not added to --
+    but it is slow and it would fight the live sensors on every restart, so what has
+    been done is remembered.
+    """
+    opts = {**entry.data, **entry.options}
+    start_date = opts.get(CONF_START_DATE)
+    if not start_date:
+        return
+
+    store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+    done = await store.async_load() or {}
+    if done.get(entry.entry_id) == start_date:
+        return
+
+    totals = await async_backfill(
+        hass,
+        start_date=start_date,
+        currency=opts.get(CONF_CURRENCY) or DEFAULT_CURRENCY,
+        standing_rate=float(opts.get(CONF_STANDING_CHARGE) or 0),
+        levy_amount=float(opts.get(CONF_LEVY_AMOUNT) or 0),
+        vat_rate=float(opts.get(CONF_VAT_RATE) or 0),
+        vat_sources=list(opts.get(CONF_VAT_SOURCES) or detected),
+        entity_ids=ids,
+    )
+
+    # Hand the sensors the total the history says they should be at. Their state is
+    # their running total, so this is what keeps the live statistics continuous with
+    # what was just written.
+    sensors = hass.data[DOMAIN][entry.entry_id].get("cost_sensors") or {}
+    for kind, total in totals.items():
+        if sensor := sensors.get(kind):
+            sensor.set_total(total)
+
+    done[entry.entry_id] = start_date
+    await store.async_save(done)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -99,6 +161,11 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     ]
     if energy_entities:
         await async_remove_sources(hass, energy_entities)
+
+    store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+    done = await store.async_load() or {}
+    if done.pop(entry.entry_id, None) is not None:
+        await store.async_save(done)
 
 
 async def _async_reload(hass: HomeAssistant, entry: ConfigEntry) -> None:

@@ -12,13 +12,15 @@
           "levy_amount": "Levy (per month)",
           "vat_rate": "VAT rate (%)",
           "vat_sources": "Apply VAT to (optional)",
-          "show_rate_in_name": "Show the rate in the source name"
+          "show_rate_in_name": "Show the rate in the source name",
+          "start_date": "Charges start on (optional)"
         },
         "data_description": {
           "standing_charge": "The fixed daily charge, excluding VAT. It accrues continuously.",
           "levy_amount": "A flat monthly fee such as Ireland's PSO levy, excluding VAT. It is charged in full when the month rolls over, never spread across the days, because a monthly fee prorated by day can never be right for both 30- and 31-day billing cycles.",
           "vat_sources": "Leave this empty and WattElse works it out on its own: it taxes every grid consumption source on the Energy dashboard, and never the export credit. Only fill it in if you want to override that -- for instance if one of your sources is billed tax-free.",
-          "show_rate_in_name": "Puts the rate into the name shown on the Energy dashboard, so the Sources list documents the tariff it is charging you."
+          "show_rate_in_name": "Puts the rate into the name shown on the Energy dashboard, so the Sources list documents the tariff it is charging you.",
+          "start_date": "The day your current tariff started. WattElse then rebuilds the history from that date: the standing charge hour by hour, the levy as a step at each month boundary, and the VAT worked out from the consumption already in your database. Without it the charges start at zero today, so past bills will not add up. It runs once; clear the field or change the date to run it again."
         }
       }
     }
@@ -36,10 +38,12 @@
           "levy_amount": "Levy (per month)",
           "vat_rate": "VAT rate (%)",
           "vat_sources": "Apply VAT to (optional)",
-          "show_rate_in_name": "Show the rate in the source name"
+          "show_rate_in_name": "Show the rate in the source name",
+          "start_date": "Charges start on (optional)"
         },
         "data_description": {
-          "vat_sources": "Leave this empty and WattElse works it out on its own: it taxes every grid consumption source on the Energy dashboard, and never the export credit. Only fill it in if you want to override that -- for instance if one of your sources is billed tax-free."
+          "vat_sources": "Leave this empty and WattElse works it out on its own: it taxes every grid consumption source on the Energy dashboard, and never the export credit. Only fill it in if you want to override that -- for instance if one of your sources is billed tax-free.",
+          "start_date": "The day your current tariff started. WattElse then rebuilds the history from that date: the standing charge hour by hour, the levy as a step at each month boundary, and the VAT worked out from the consumption already in your database. Without it the charges start at zero today, so past bills will not add up. It runs once; clear the field or change the date to run it again."
         }
       }
     }

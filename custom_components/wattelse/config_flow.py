@@ -12,6 +12,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
+    DateSelector,
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
@@ -28,6 +29,7 @@ from .const import (
     CONF_NAME,
     CONF_SHOW_RATE_IN_NAME,
     CONF_STANDING_CHARGE,
+    CONF_START_DATE,
     CONF_VAT_RATE,
     CONF_VAT_SOURCES,
     DEFAULT_CURRENCY,
@@ -77,6 +79,9 @@ def _schema(defaults: dict[str, Any]) -> vol.Schema:
             vol.Optional(
                 CONF_SHOW_RATE_IN_NAME, default=defaults.get(CONF_SHOW_RATE_IN_NAME, True)
             ): bool,
+            vol.Optional(
+                CONF_START_DATE, description={"suggested_value": defaults.get(CONF_START_DATE)}
+            ): DateSelector(),
         }
     )
 

@@ -12,13 +12,15 @@
           "levy_amount": "Cargo fijo mensual",
           "vat_rate": "Tipo de IVA (%)",
           "vat_sources": "Aplicar el IVA a (opcional)",
-          "show_rate_in_name": "Mostrar la tarifa en el nombre de la fuente"
+          "show_rate_in_name": "Mostrar la tarifa en el nombre de la fuente",
+          "start_date": "Los cargos empiezan el (opcional)"
         },
         "data_description": {
           "standing_charge": "El cargo fijo diario, sin IVA. Se devenga de forma continua.",
           "levy_amount": "Una cuota fija mensual, como el PSO levy irlandes, sin IVA. Se cobra entera al cambiar de mes, nunca repartida por dias: prorratear una cuota mensual por dias no puede cuadrar a la vez en ciclos de 30 y de 31 dias.",
           "vat_sources": "Dejalo vacio y WattElse lo resuelve solo: grava todas las fuentes de consumo de la red del panel de energia y nunca el export credit. Rellenalo solo si quieres cambiar eso, por ejemplo si alguna de tus fuentes va exenta de impuesto.",
-          "show_rate_in_name": "Mete la tarifa en el nombre que se ve en el panel de energia, de modo que la lista de Sources documenta la tarifa que te esta cobrando."
+          "show_rate_in_name": "Mete la tarifa en el nombre que se ve en el panel de energia, de modo que la lista de Sources documenta la tarifa que te esta cobrando.",
+          "start_date": "El dia en que empezo tu tarifa actual. WattElse reconstruye el historico desde esa fecha: el standing charge hora a hora, el cargo mensual como escalon en cada cambio de mes, y el IVA calculado sobre el consumo que ya tienes en la base de datos. Sin esta fecha los cargos empiezan hoy en cero y las facturas pasadas no cuadraran. Se ejecuta una vez; cambia la fecha para volver a lanzarlo."
         }
       }
     }
@@ -36,10 +38,12 @@
           "levy_amount": "Cargo fijo mensual",
           "vat_rate": "Tipo de IVA (%)",
           "vat_sources": "Aplicar el IVA a (opcional)",
-          "show_rate_in_name": "Mostrar la tarifa en el nombre de la fuente"
+          "show_rate_in_name": "Mostrar la tarifa en el nombre de la fuente",
+          "start_date": "Los cargos empiezan el (opcional)"
         },
         "data_description": {
-          "vat_sources": "Dejalo vacio y WattElse lo resuelve solo: grava todas las fuentes de consumo de la red del panel de energia y nunca el export credit. Rellenalo solo si quieres cambiar eso, por ejemplo si alguna de tus fuentes va exenta de impuesto."
+          "vat_sources": "Dejalo vacio y WattElse lo resuelve solo: grava todas las fuentes de consumo de la red del panel de energia y nunca el export credit. Rellenalo solo si quieres cambiar eso, por ejemplo si alguna de tus fuentes va exenta de impuesto.",
+          "start_date": "El dia en que empezo tu tarifa actual. WattElse reconstruye el historico desde esa fecha: el standing charge hora a hora, el cargo mensual como escalon en cada cambio de mes, y el IVA calculado sobre el consumo que ya tienes en la base de datos. Sin esta fecha los cargos empiezan hoy en cero y las facturas pasadas no cuadraran. Se ejecuta una vez; cambia la fecha para volver a lanzarlo."
         }
       }
     }

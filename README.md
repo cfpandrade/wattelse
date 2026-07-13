@@ -81,6 +81,7 @@ doesn't get a levy row.
 | **VAT rate** | The percentage your supplier applies. Set it to `0` if electricity isn't taxed where you are, and no VAT line is created. |
 | **Apply VAT to** | Optional. Leave it empty — see below. |
 | **Show rate in name** | Renders the rate into the source name, so the Sources list documents the tariff it's charging you. |
+| **Charges start on** | Optional. The day your tariff started — WattElse rebuilds the history from there. See below. |
 
 ### Who gets taxed
 
@@ -143,13 +144,27 @@ integration:
 
 ## Backfilling history
 
-New sensors start at zero. If you want past periods to add up too, you have two options:
+New sensors start at zero, so the month you actually wanted to check — last month's bill —
+has nothing to show. Fill in **Charges start on** with the day your tariff began and
+WattElse writes the hourly statistics for the whole stretch between then and now:
 
-- Set a total directly with the `wattelse.set_total` service. Enough to make the current
-  period correct.
-- Import proper hourly statistics with
-  [import_statistics](https://github.com/klausj1/homeassistant-statistics), which is what
-  you'd reach for anyway if you're rebuilding consumption history from your supplier's data.
+- the **standing charge**, hour by hour;
+- the **levy**, as a step at each month boundary;
+- the **VAT**, worked out from the consumption cost already in your database, so it agrees
+  with the same statistics the Energy dashboard is drawing rather than a re-derivation of
+  its own.
+
+The live sensors are then set to the total the history says they reached, so the running
+statistics carry straight on with no jump. It runs once — change the date to run it again.
+
+Two caveats. Your **consumption statistics have to reach back that far**, since the VAT is
+computed from them; if your history starts in March, don't ask for January. And your **kWh
+prices must have been the net ones all along** — WattElse taxes what the recorder stored,
+so a period recorded at tax-inclusive prices gets taxed on top.
+
+If you need finer control — a rate that changed mid-history, say — import the statistics
+yourself with [import_statistics](https://github.com/klausj1/homeassistant-statistics), or
+set a total directly with the `wattelse.set_total` service.
 
 ## Services
 
