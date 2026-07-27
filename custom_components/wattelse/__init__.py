@@ -125,9 +125,15 @@ async def _async_backfill_once(
             await store.async_save(done)
         return
 
-    # What was backfilled depends on the date, the rates it was computed from, and the
-    # version of the code that computed it -- so a rate change or an upgrade that fixes
-    # the maths rewrites the history, while a plain restart does not.
+    # What was backfilled depends on the date, the rates it was computed from, the
+    # sensors VAT was charged on, and the version of the code that computed it -- so a
+    # rate change or an upgrade that fixes the maths rewrites the history, while a plain
+    # restart does not.
+    #
+    # The taxed sensors are part of that recipe because they decide the base VAT is a
+    # percentage of. Add a tariff to the Energy dashboard after installing this, and the
+    # history has to be recomputed or the tax stays a percentage of the old, smaller sum.
+    taxed = list(opts.get(CONF_VAT_SOURCES) or detected)
     recipe = "|".join(
         str(x)
         for x in (
@@ -136,6 +142,7 @@ async def _async_backfill_once(
             opts.get(CONF_STANDING_CHARGE),
             opts.get(CONF_LEVY_AMOUNT),
             opts.get(CONF_VAT_RATE),
+            ",".join(sorted(taxed)),
         )
     )
     if done.get(entry.entry_id) == recipe:
@@ -148,7 +155,7 @@ async def _async_backfill_once(
         standing_rate=float(opts.get(CONF_STANDING_CHARGE) or 0),
         levy_amount=float(opts.get(CONF_LEVY_AMOUNT) or 0),
         vat_rate=float(opts.get(CONF_VAT_RATE) or 0),
-        vat_sources=list(opts.get(CONF_VAT_SOURCES) or detected),
+        vat_sources=taxed,
         entity_ids=ids,
     )
 

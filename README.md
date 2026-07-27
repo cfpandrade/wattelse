@@ -104,6 +104,12 @@ suppliers apply 0% to it, which is why it sits *after* the VAT line on the bill.
 Fill in *Apply VAT to* only if you want to override that, for instance when one of your
 sources is billed tax-free.
 
+The VAT sensor shows its work: `taxable_base` is the running sum of everything it has
+taxed and `taxed_sources` lists the sensors that sum came from, so the state should always
+be the base times the rate. If a source is missing from that list, it was added to the
+Energy dashboard after WattElse was set up — reload the integration and it is picked up,
+and the backfilled history is recomputed against the larger base.
+
 What it taxes is the *net* price, which is why every kWh price has to be entered without
 VAT. Bills quote the net rate anyway, so that usually just means copying the number
 straight off the bill — and if you leave the price tax-inclusive, the tax is counted
