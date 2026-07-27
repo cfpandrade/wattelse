@@ -36,6 +36,16 @@ async def _get_manager(hass: HomeAssistant) -> Any | None:
     return await async_get_manager(hass)
 
 
+def _new_flow(stat_energy_from: str, stat_cost: str) -> dict[str, Any]:
+    """One consumption flow inside a grid source."""
+    return {
+        "stat_energy_from": stat_energy_from,
+        "stat_cost": stat_cost,
+        "entity_energy_price": None,
+        "number_energy_price": None,
+    }
+
+
 def _new_grid_source(
     stat_energy_from: str, stat_cost: str, template: dict[str, Any] | None
 ) -> dict[str, Any]:
@@ -45,17 +55,10 @@ def _new_grid_source(
     and a nested one (flow_from/flow_to lists). Cloning the keys of an existing grid
     source keeps us compatible with whatever this install actually uses.
     """
-    if template and "flow_from" in template:
+    if template is None or "flow_from" in template:
         return {
             "type": "grid",
-            "flow_from": [
-                {
-                    "stat_energy_from": stat_energy_from,
-                    "stat_cost": stat_cost,
-                    "entity_energy_price": None,
-                    "number_energy_price": None,
-                }
-            ],
+            "flow_from": [_new_flow(stat_energy_from, stat_cost)],
             "flow_to": [],
             "cost_adjustment_day": 0.0,
         }
@@ -75,6 +78,37 @@ def _new_grid_source(
     return source
 
 
+def _without_ours(
+    sources: list[dict[str, Any]], ours: set[str]
+) -> list[dict[str, Any]]:
+    """Every source with our charges taken back out, in their original order.
+
+    Our charges can be in either of two places: a flow inside somebody else's grid
+    source, which is where they are put now, or a grid source of their own, which is
+    where versions up to 1.3.0 put them. Both are cleaned up. A source left holding
+    nothing at all was one of ours and goes with them; one that still has an export
+    flow is kept, since that is the user's.
+    """
+    kept: list[dict[str, Any]] = []
+    for source in sources:
+        if source.get("type") != "grid":
+            kept.append(source)
+            continue
+        if "flow_from" in source:
+            flows = [
+                f
+                for f in source.get("flow_from") or []
+                if f.get("stat_energy_from") not in ours
+            ]
+            if not flows and not (source.get("flow_to") or []):
+                continue
+            kept.append({**source, "flow_from": flows})
+            continue
+        if not ours.intersection(_energy_stat(source)):
+            kept.append(source)
+    return kept
+
+
 def _energy_stat(source: dict[str, Any]) -> list[str]:
     """Return the energy statistic ids a grid source consumes from."""
     if "flow_from" in source:
@@ -87,16 +121,18 @@ def _energy_stat(source: dict[str, Any]) -> list[str]:
 async def async_add_sources(
     hass: HomeAssistant, pairs: list[tuple[str, str]]
 ) -> None:
-    """Add (energy_entity, cost_entity) pairs to the Energy dashboard as grid sources.
+    """Add (energy_entity, cost_entity) pairs to the Energy dashboard, in bill order.
 
-    `pairs` arrives in bill order and the dashboard lists sources in the order they are
-    stored, so ours are always moved to the end and rewritten in the given order -- not
-    merely appended when missing. An install that was set up before the order changed
-    gets rearranged on the next reload instead of being stuck with the old one.
+    The charges go *inside* an existing grid source's `flow_from`, after the tariffs
+    already there -- not into grid sources of their own. That is what puts the export
+    credit last: the dashboard's table walks one source at a time, drawing that source's
+    consumption flows and then its return-to-grid flows, so a charge parked in a source
+    of its own lands *below* the export row of the source before it, however the sources
+    themselves are ordered.
 
-    The user's own sources keep their relative order and are never modified. Export
-    stays below all of this: the dashboard draws every grid *flow to* after every grid
-    *flow from*, whatever position the sources are stored in.
+    Ending up with: the user's tariffs, then the charges in `pairs` order, then the
+    export credit, then the total. The tariffs keep their own relative order, and only
+    our flows are ever added or moved.
     """
     manager = await _get_manager(hass)
     if manager is None or manager.data is None:
@@ -104,16 +140,28 @@ async def async_add_sources(
 
     sources: list[dict[str, Any]] = list(manager.data.get("energy_sources") or [])
     ours = {energy for energy, _ in pairs}
-    theirs = [
-        s
-        for s in sources
-        if not (s.get("type") == "grid" and ours.intersection(_energy_stat(s)))
-    ]
-    grid_template = next((s for s in theirs if s.get("type") == "grid"), None)
 
-    wanted = theirs + [
-        _new_grid_source(energy, cost, grid_template) for energy, cost in pairs
-    ]
+    # Anything of ours already on the dashboard is dropped first, wherever it sits --
+    # including the standalone sources older versions of this integration created, which
+    # is what pushed the export credit up the list.
+    kept = _without_ours(sources, ours)
+
+    host = next(
+        (s for s in kept if s.get("type") == "grid" and "flow_from" in s), None
+    )
+    if host is not None:
+        host["flow_from"] = list(host["flow_from"]) + [
+            _new_flow(energy, cost) for energy, cost in pairs
+        ]
+        wanted = kept
+    else:
+        # A legacy flat layout, or no grid source at all: fall back to one source per
+        # charge, appended at the end.
+        template = next((s for s in kept if s.get("type") == "grid"), None)
+        wanted = kept + [
+            _new_grid_source(energy, cost, template) for energy, cost in pairs
+        ]
+
     if wanted == sources:
         return
 
@@ -141,19 +189,14 @@ async def async_add_sources(
 
 
 async def async_remove_sources(hass: HomeAssistant, energy_entities: list[str]) -> None:
-    """Remove our grid sources from the Energy dashboard again."""
+    """Take our charges back off the Energy dashboard, leaving the user's tariffs be."""
     manager = await _get_manager(hass)
     if manager is None or manager.data is None:
         return
 
-    ours = set(energy_entities)
     sources = list(manager.data.get("energy_sources") or [])
-    kept = [
-        s
-        for s in sources
-        if not (s.get("type") == "grid" and ours.intersection(_energy_stat(s)))
-    ]
-    if len(kept) == len(sources):
+    kept = _without_ours(sources, set(energy_entities))
+    if kept == sources:
         return
 
     try:
@@ -167,7 +210,7 @@ async def async_remove_sources(hass: HomeAssistant, energy_entities: list[str]) 
         _LOGGER.exception("Could not remove the charges from the Energy dashboard")
         return
 
-    _LOGGER.info("Removed %d charge(s) from the Energy dashboard", len(sources) - len(kept))
+    _LOGGER.info("Removed the charges from the Energy dashboard")
 
 
 async def async_detect_vat_sources(hass: HomeAssistant) -> list[str]:
