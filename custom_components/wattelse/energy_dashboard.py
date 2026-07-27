@@ -89,33 +89,38 @@ async def async_add_sources(
 ) -> None:
     """Add (energy_entity, cost_entity) pairs to the Energy dashboard as grid sources.
 
-    Charges are appended at the end so they read in bill order: consumption first,
-    then the fixed charges, then VAT. Existing sources are never modified.
+    `pairs` arrives in bill order and the dashboard lists sources in the order they are
+    stored, so ours are always moved to the end and rewritten in the given order -- not
+    merely appended when missing. An install that was set up before the order changed
+    gets rearranged on the next reload instead of being stuck with the old one.
+
+    The user's own sources keep their relative order and are never modified. Export
+    stays below all of this: the dashboard draws every grid *flow to* after every grid
+    *flow from*, whatever position the sources are stored in.
     """
     manager = await _get_manager(hass)
     if manager is None or manager.data is None:
         return
 
     sources: list[dict[str, Any]] = list(manager.data.get("energy_sources") or [])
-    grid_template = next((s for s in sources if s.get("type") == "grid"), None)
-
-    known: set[str] = set()
-    for source in sources:
-        if source.get("type") == "grid":
-            known.update(_energy_stat(source))
-
-    added = [
-        _new_grid_source(energy, cost, grid_template)
-        for energy, cost in pairs
-        if energy not in known
+    ours = {energy for energy, _ in pairs}
+    theirs = [
+        s
+        for s in sources
+        if not (s.get("type") == "grid" and ours.intersection(_energy_stat(s)))
     ]
-    if not added:
+    grid_template = next((s for s in theirs if s.get("type") == "grid"), None)
+
+    wanted = theirs + [
+        _new_grid_source(energy, cost, grid_template) for energy, cost in pairs
+    ]
+    if wanted == sources:
         return
 
     try:
         await manager.async_update(
             {
-                "energy_sources": sources + added,
+                "energy_sources": wanted,
                 "device_consumption": list(manager.data.get("device_consumption") or []),
             }
         )
@@ -128,7 +133,11 @@ async def async_add_sources(
         )
         return
 
-    _LOGGER.info("Added %d charge(s) to the Energy dashboard", len(added))
+    _LOGGER.info(
+        "The Energy dashboard now lists %d charge(s), in bill order: %s",
+        len(pairs),
+        ", ".join(energy for energy, _ in pairs),
+    )
 
 
 async def async_remove_sources(hass: HomeAssistant, energy_entities: list[str]) -> None:

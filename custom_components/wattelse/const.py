@@ -27,6 +27,12 @@ KIND_STANDING: Final = "standing_charge"
 KIND_LEVY: Final = "levy"
 KIND_VAT: Final = "vat"
 
+# Bill order. The Energy dashboard lists its sources in the order they are stored, so
+# this is what decides how the charges read on screen: the consumption tariffs the user
+# already had, then the levy, then the standing charge, and VAT last -- because VAT is a
+# percentage of everything above it and only makes sense once they have all been listed.
+CHARGE_ORDER: Final = (KIND_LEVY, KIND_STANDING, KIND_VAT)
+
 # How often the time-based charges accrue. One minute keeps the hourly
 # statistics smooth without putting any real load on the event loop.
 ACCRUAL_INTERVAL_MINUTES: Final = 1

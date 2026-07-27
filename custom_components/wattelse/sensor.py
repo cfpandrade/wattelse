@@ -286,20 +286,51 @@ class VatSensor(BaseCostSensor):
         sources: list[str],
     ) -> None:
         super().__init__(entry, KIND_VAT, name, currency, device)
+        self._rate_percent = rate_percent
         self._rate = rate_percent / 100
         self._sources = sources
         self._seen: dict[str, float] = {}
+        self._base: float = 0.0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """What the tax was worked out from, so the figure can be checked by hand.
+
+        `taxable_base` is the running sum of everything taxed so far -- the consumption
+        sensors plus this integration's own fixed charges -- and the state is that base
+        times the rate. If the two don't line up with the dashboard, this says which of
+        them is wrong, and `taxed_sources` says what was left out.
+        """
+        return {
+            "taxable_base": round(self._base, 5),
+            "vat_rate": self._rate_percent,
+            "taxed_sources": self._sources,
+        }
 
     def _state_to_restore(self) -> dict[str, Any]:
-        return {"total": self._total, "seen": self._seen}
+        return {"total": self._total, "seen": self._seen, "base": self._base}
 
     def _restore(self, data: dict[str, Any]) -> None:
         super()._restore(data)
         seen = data.get("seen") or {}
         self._seen = {k: float(v) for k, v in seen.items()}
+        self._base = float(data.get("base") or 0.0)
+
+    @callback
+    def set_total(self, value: float) -> None:
+        """Overwrite the tax, and the base it must be the percentage of."""
+        super().set_total(value)
+        self._base = value / self._rate if self._rate else 0.0
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
+        if not self._sources:
+            _LOGGER.warning(
+                "%s is only taxing this integration's own fixed charges: no grid "
+                "consumption cost sensor was found. Give your Energy dashboard grid "
+                "sources a price, or name the cost sensors to tax in the options",
+                self.entity_id,
+            )
         if self._sources:
             self.async_on_remove(
                 async_track_state_change_event(self.hass, self._sources, self._source_changed)
@@ -341,6 +372,9 @@ class VatSensor(BaseCostSensor):
     @callback
     def add_net(self, net_amount: float) -> None:
         """Tax a net increment. Called by the fixed-charge sensors too."""
+        if net_amount <= 0:
+            return
+        self._base += net_amount
         if self._rate:
             self._accrue(net_amount * self._rate)
 
@@ -388,6 +422,19 @@ async def async_setup_entry(
             entry, f"{base} VAT Cost", currency, device, vat, vat_sources
         )
 
+    # Built in CHARGE_ORDER: the levy and the standing charge first, VAT last. The order
+    # the kinds are appended in here is the order they end up in on the dashboard.
+    if levy > 0:
+        sensor = LevySensor(entry, f"{base} {levy_name} Cost", currency, device, levy)
+        if vat_sensor:
+            sensor.add_listener(vat_sensor.add_net)
+        costs[KIND_LEVY] = sensor
+        energy = PhantomEnergySensor(
+            entry, KIND_LEVY, titled(levy_name, f"{levy:g} {currency}/month"), device
+        )
+        entities += [energy, sensor]
+        kinds.append(KIND_LEVY)
+
     if standing > 0:
         sensor = StandingChargeSensor(
             entry, f"{base} Standing Charge Cost", currency, device, standing
@@ -403,17 +450,6 @@ async def async_setup_entry(
         )
         entities += [energy, sensor]
         kinds.append(KIND_STANDING)
-
-    if levy > 0:
-        sensor = LevySensor(entry, f"{base} {levy_name} Cost", currency, device, levy)
-        if vat_sensor:
-            sensor.add_listener(vat_sensor.add_net)
-        costs[KIND_LEVY] = sensor
-        energy = PhantomEnergySensor(
-            entry, KIND_LEVY, titled(levy_name, f"{levy:g} {currency}/month"), device
-        )
-        entities += [energy, sensor]
-        kinds.append(KIND_LEVY)
 
     if vat_sensor:
         costs[KIND_VAT] = vat_sensor
