@@ -123,16 +123,20 @@ async def async_add_sources(
 ) -> None:
     """Add (energy_entity, cost_entity) pairs to the Energy dashboard, in bill order.
 
-    The charges go *inside* an existing grid source's `flow_from`, after the tariffs
-    already there -- not into grid sources of their own. That is what puts the export
-    credit last: the dashboard's table walks one source at a time, drawing that source's
-    consumption flows and then its return-to-grid flows, so a charge parked in a source
-    of its own lands *below* the export row of the source before it, however the sources
-    themselves are ordered.
+    The dashboard's table walks one grid source at a time, drawing that source's
+    consumption flows and then its return-to-grid flows. Two things follow, and both are
+    what it takes to get the export credit to the bottom of the bill:
+
+      * the charges go *inside* a grid source's `flow_from`, after the tariffs already
+        there, never into grid sources of their own -- a charge in its own source lands
+        below the export row of the source before it;
+      * every export flow is gathered into that same source, which is then moved to the
+        end of the list. Split across sources, an export flow can sit above a tariff or
+        a charge belonging to a later one, and nothing about its own position fixes that.
 
     Ending up with: the user's tariffs, then the charges in `pairs` order, then the
-    export credit, then the total. The tariffs keep their own relative order, and only
-    our flows are ever added or moved.
+    export credit, then the total. Tariffs and export flows keep their relative order,
+    and nothing about them is changed beyond which source they hang from.
     """
     manager = await _get_manager(hass)
     if manager is None or manager.data is None:
@@ -146,14 +150,19 @@ async def async_add_sources(
     # is what pushed the export credit up the list.
     kept = _without_ours(sources, ours)
 
-    host = next(
-        (s for s in kept if s.get("type") == "grid" and "flow_from" in s), None
-    )
-    if host is not None:
+    grids = [s for s in kept if s.get("type") == "grid" and "flow_from" in s]
+    if grids:
+        # The last one, so no other source's tariffs can be drawn after our charges.
+        host = grids[-1]
+        exports = [f for s in grids for f in s.get("flow_to") or []]
+        for source in grids:
+            if source is not host and source.get("flow_to"):
+                source["flow_to"] = []
         host["flow_from"] = list(host["flow_from"]) + [
             _new_flow(energy, cost) for energy, cost in pairs
         ]
-        wanted = kept
+        host["flow_to"] = exports
+        wanted = [s for s in kept if s is not host] + [host]
     else:
         # A legacy flat layout, or no grid source at all: fall back to one source per
         # charge, appended at the end.

@@ -51,6 +51,7 @@ from .const import (
     CONF_STANDING_CHARGE,
     CONF_VAT_RATE,
     CONF_VAT_SOURCES,
+    CURRENCY_DECIMALS,
     DEFAULT_CURRENCY,
     DEFAULT_LEVY_NAME,
     DEFAULT_NAME,
@@ -101,6 +102,7 @@ class BaseCostSensor(RestoreSensor):
     _attr_should_poll = False
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_state_class = SensorStateClass.TOTAL
+    _attr_suggested_display_precision = CURRENCY_DECIMALS
 
     def __init__(
         self, entry: ConfigEntry, kind: str, name: str, currency: str, device: DeviceInfo
@@ -117,7 +119,18 @@ class BaseCostSensor(RestoreSensor):
 
     @property
     def native_value(self) -> float:
-        return round(self._total, 5)
+        """The running total, in whole cents.
+
+        Money is published rounded to the currency's own precision, not to the five
+        decimals the accrual actually carries. The dashboard totals the *stored* values,
+        so a charge published as 12.3412 shows as 12.34 in its own row and still adds
+        12.3412 to the total -- the few cents of drift you see between the rows and the
+        sum. Rounding here means our rows add up to exactly what they display.
+
+        The running total keeps its full precision: only the published state is rounded,
+        so nothing is lost from one accrual to the next.
+        """
+        return round(self._total, CURRENCY_DECIMALS)
 
     @property
     def extra_restore_state_data(self) -> ChargeExtraData:
@@ -302,7 +315,7 @@ class VatSensor(BaseCostSensor):
         them is wrong, and `taxed_sources` says what was left out.
         """
         return {
-            "taxable_base": round(self._base, 5),
+            "taxable_base": round(self._base, CURRENCY_DECIMALS),
             "vat_rate": self._rate_percent,
             "taxed_sources": self._sources,
         }

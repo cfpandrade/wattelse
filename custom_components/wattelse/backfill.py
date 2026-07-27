@@ -25,7 +25,7 @@ from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from .const import KIND_LEVY, KIND_STANDING, KIND_VAT
+from .const import CURRENCY_DECIMALS, KIND_LEVY, KIND_STANDING, KIND_VAT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,7 +90,11 @@ def _epoch_seconds(start: float) -> float:
 
 
 def _import(
-    hass: HomeAssistant, statistic_id: str, unit: str, rows: list[tuple[datetime, float]]
+    hass: HomeAssistant,
+    statistic_id: str,
+    unit: str,
+    rows: list[tuple[datetime, float]],
+    decimals: int = CURRENCY_DECIMALS,
 ) -> None:
     """Write a cumulative series into the recorder under an entity's own id.
 
@@ -108,8 +112,13 @@ def _import(
         statistic_id=statistic_id,
         unit_of_measurement=unit,
     )
+    # Rounded to the cent, like the live sensors publish: the dashboard totals the
+    # stored values, so history written to six decimals would disagree with the rows it
+    # draws by a fraction of a cent per hour.
     stats = [
-        StatisticData(start=when, sum=round(total, 6), state=round(total, 6))
+        StatisticData(
+            start=when, sum=round(total, decimals), state=round(total, decimals)
+        )
         for when, total in rows
     ]
     async_import_statistics(hass, metadata, stats)

@@ -33,6 +33,12 @@ KIND_VAT: Final = "vat"
 # percentage of everything above it and only makes sense once they have all been listed.
 CHARGE_ORDER: Final = (KIND_LEVY, KIND_STANDING, KIND_VAT)
 
+# Money is published to the cent. Charges accrue in fractions of one -- a standing
+# charge of 0.6798 a day is worth 0.00047 a minute -- but what reaches the dashboard is
+# rounded, because the dashboard totals the stored values and a row that displays 12.34
+# while storing 12.3412 makes the total disagree with the rows above it by a few cents.
+CURRENCY_DECIMALS: Final = 2
+
 # How often the time-based charges accrue. One minute keeps the hourly
 # statistics smooth without putting any real load on the event loop.
 ACCRUAL_INTERVAL_MINUTES: Final = 1
