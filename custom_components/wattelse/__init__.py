@@ -25,11 +25,13 @@ from .const import (
     CONF_CURRENCY,
     CONF_LEVY_AMOUNT,
     CONF_STANDING_CHARGE,
+    CONF_STANDING_CHARGE_ENTITY,
     CONF_START_DATE,
     CONF_VAT_RATE,
     CONF_VAT_SOURCES,
     DEFAULT_CURRENCY,
     DOMAIN,
+    KIND_STANDING,
     SERVICE_SET_TOTAL,
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -140,6 +142,7 @@ async def _async_backfill_once(
             integration_version(hass),
             start_date,
             opts.get(CONF_STANDING_CHARGE),
+            opts.get(CONF_STANDING_CHARGE_ENTITY),
             opts.get(CONF_LEVY_AMOUNT),
             opts.get(CONF_VAT_RATE),
             ",".join(sorted(taxed)),
@@ -148,11 +151,29 @@ async def _async_backfill_once(
     if done.get(entry.entry_id) == recipe:
         return
 
+    sensors = hass.data[DOMAIN][entry.entry_id].get("cost_sensors") or {}
+
+    # A standing charge that follows a sensor is rebuilt at the rate that sensor shows
+    # today: a tariff sensor rarely keeps the history needed to know what it was months
+    # ago. The rate it carries is the one the live sensor has already settled on.
+    standing_rate = float(opts.get(CONF_STANDING_CHARGE) or 0)
+    if standing := sensors.get(KIND_STANDING):
+        standing_rate = standing.rate
+    if opts.get(CONF_STANDING_CHARGE_ENTITY) and not standing_rate:
+        # The sensor has never had a value yet. Rebuilding now would write a history
+        # with no standing charge in it and remember it as done, so wait for a load
+        # where the rate is known.
+        _LOGGER.warning(
+            "Not rebuilding the history yet: %s has no rate",
+            opts[CONF_STANDING_CHARGE_ENTITY],
+        )
+        return
+
     totals = await async_backfill(
         hass,
         start_date=start_date,
         currency=opts.get(CONF_CURRENCY) or DEFAULT_CURRENCY,
-        standing_rate=float(opts.get(CONF_STANDING_CHARGE) or 0),
+        standing_rate=standing_rate,
         levy_amount=float(opts.get(CONF_LEVY_AMOUNT) or 0),
         vat_rate=float(opts.get(CONF_VAT_RATE) or 0),
         vat_sources=taxed,
@@ -162,7 +183,6 @@ async def _async_backfill_once(
     # Hand the sensors the total the history says they should be at. Their state is
     # their running total, so this is what keeps the live statistics continuous with
     # what was just written.
-    sensors = hass.data[DOMAIN][entry.entry_id].get("cost_sensors") or {}
     for kind, total in totals.items():
         if sensor := sensors.get(kind):
             sensor.set_total(total)

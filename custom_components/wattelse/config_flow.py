@@ -29,6 +29,7 @@ from .const import (
     CONF_NAME,
     CONF_SHOW_RATE_IN_NAME,
     CONF_STANDING_CHARGE,
+    CONF_STANDING_CHARGE_ENTITY,
     CONF_START_DATE,
     CONF_VAT_RATE,
     CONF_VAT_SOURCES,
@@ -62,6 +63,13 @@ def _schema(defaults: dict[str, Any]) -> vol.Schema:
             vol.Optional(
                 CONF_STANDING_CHARGE, default=defaults.get(CONF_STANDING_CHARGE, 0)
             ): _money(),
+            # A sensor that follows the tariff (a supplier integration such as Octopus
+            # Energy publishes one) instead of a number typed in by hand. The number
+            # above is then only the fallback while that sensor has no usable value.
+            vol.Optional(
+                CONF_STANDING_CHARGE_ENTITY,
+                description={"suggested_value": defaults.get(CONF_STANDING_CHARGE_ENTITY)},
+            ): EntitySelector(EntitySelectorConfig(domain=["sensor", "input_number"])),
             vol.Optional(
                 CONF_LEVY_NAME, default=defaults.get(CONF_LEVY_NAME, DEFAULT_LEVY_NAME)
             ): TextSelector(),
@@ -115,6 +123,10 @@ class WattElseOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
+            # A cleared optional field is left out of the form's answer, and the options
+            # are layered over the install-time data -- so without this, a sensor picked
+            # at install time could never be removed again.
+            user_input.setdefault(CONF_STANDING_CHARGE_ENTITY, None)
             return self.async_create_entry(data=user_input)
         current = {**self.config_entry.data, **self.config_entry.options}
         return self.async_show_form(step_id="init", data_schema=_schema(current))

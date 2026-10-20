@@ -8,6 +8,7 @@
           "name": "Nombre",
           "currency": "Moneda",
           "standing_charge": "Standing charge (por dia)",
+          "standing_charge_entity": "Standing charge desde un sensor (opcional)",
           "levy_name": "Nombre del cargo mensual",
           "levy_amount": "Cargo fijo mensual",
           "vat_rate": "Tipo de IVA (%)",
@@ -17,6 +18,7 @@
         },
         "data_description": {
           "standing_charge": "El cargo fijo diario, sin IVA. Se devenga de forma continua.",
+          "standing_charge_entity": "Un sensor que siga tu tarifa, como el de standing charge actual de la integracion de tu proveedor (Octopus Energy, por ejemplo), en tu moneda por dia y sin IVA. WattElse cobra lo que diga, y un cambio de tarifa solo afecta a los dias siguientes. El numero de arriba solo se usa hasta que ese sensor tenga valor.",
           "levy_amount": "Una cuota fija mensual, como el PSO levy irlandes, sin IVA. Se cobra entera al cambiar de mes, nunca repartida por dias: prorratear una cuota mensual por dias no puede cuadrar a la vez en ciclos de 30 y de 31 dias.",
           "vat_sources": "Dejalo vacio y WattElse lo resuelve solo: grava todas las fuentes de consumo de la red del panel de energia y nunca el export credit. Rellenalo solo si quieres cambiar eso, por ejemplo si alguna de tus fuentes va exenta de impuesto.",
           "show_rate_in_name": "Mete la tarifa en el nombre que se ve en el panel de energia, de modo que la lista de Sources documenta la tarifa que te esta cobrando.",
@@ -34,6 +36,7 @@
           "name": "Nombre",
           "currency": "Moneda",
           "standing_charge": "Standing charge (por dia)",
+          "standing_charge_entity": "Standing charge desde un sensor (opcional)",
           "levy_name": "Nombre del cargo mensual",
           "levy_amount": "Cargo fijo mensual",
           "vat_rate": "Tipo de IVA (%)",

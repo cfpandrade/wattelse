@@ -31,7 +31,13 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy
-from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.core import (
+    Event,
+    EventStateChangedData,
+    HomeAssistant,
+    State,
+    callback,
+)
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import (
@@ -49,6 +55,7 @@ from .const import (
     CONF_NAME,
     CONF_SHOW_RATE_IN_NAME,
     CONF_STANDING_CHARGE,
+    CONF_STANDING_CHARGE_ENTITY,
     CONF_VAT_RATE,
     CONF_VAT_SOURCES,
     CURRENCY_DECIMALS,
@@ -187,26 +194,66 @@ class StandingChargeSensor(BaseCostSensor):
 
     Accruing by the minute rather than in one lump per day keeps the hourly statistics
     -- and therefore the Energy dashboard's hourly bars -- smooth.
+
+    The rate is either the number from the config, or follows a sensor that publishes
+    the tariff (a supplier integration, a helper). When it follows a sensor, the time up
+    to a rate change is settled at the old rate before the new one is taken, so the
+    change only ever affects what accrues after it. While the sensor has no usable value
+    -- at startup, during an outage -- the last good rate carries on, and before there
+    has ever been one, the number from the config does.
     """
 
-    def __init__(self, entry, name, currency, device, rate_per_day: float) -> None:
+    def __init__(
+        self,
+        entry,
+        name,
+        currency,
+        device,
+        rate_per_day: float,
+        rate_entity: str | None = None,
+    ) -> None:
         super().__init__(entry, KIND_STANDING, name, currency, device)
         self._rate = rate_per_day
+        self._rate_entity = rate_entity
         self._last: datetime | None = None
+
+    @property
+    def rate(self) -> float:
+        """The rate per day being charged right now."""
+        return self._rate
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if not self._rate_entity:
+            return None
+        return {"rate_per_day": self._rate, "rate_entity": self._rate_entity}
 
     def _state_to_restore(self) -> dict[str, Any]:
         return {
             "total": self._total,
             "last": self._last.isoformat() if self._last else None,
+            "rate": self._rate,
         }
 
     def _restore(self, data: dict[str, Any]) -> None:
         super()._restore(data)
         if raw := data.get("last"):
             self._last = dt_util.parse_datetime(raw)
+        # A rate typed into the config always wins over the stored one -- that is how an
+        # options change takes effect. Only a rate read from a sensor is worth carrying
+        # over, so the restart doesn't fall back to the config before the sensor is up.
+        if self._rate_entity and (rate := data.get("rate")) is not None:
+            self._rate = float(rate)
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
+        if self._rate_entity:
+            self._take_rate(self.hass.states.get(self._rate_entity))
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [self._rate_entity], self._rate_changed
+                )
+            )
         # Charges keep running while Home Assistant is down, so the first tick after a
         # restart deliberately settles the whole offline gap.
         self.async_on_remove(
@@ -215,6 +262,32 @@ class StandingChargeSensor(BaseCostSensor):
             )
         )
         self._tick(dt_util.utcnow())
+
+    def _take_rate(self, state: State | None) -> bool:
+        """Adopt the rate a state carries, if it carries a usable one."""
+        if state is None or state.state in UNAVAILABLE_STATES:
+            return False
+        try:
+            rate = float(state.state)
+        except ValueError:
+            _LOGGER.warning(
+                "%s is not a number (%r); keeping the standing charge at %s",
+                self._rate_entity,
+                state.state,
+                self._rate,
+            )
+            return False
+        if rate < 0:
+            return False
+        self._rate = rate
+        return True
+
+    @callback
+    def _rate_changed(self, event: Event[EventStateChangedData]) -> None:
+        # Settle the time so far at the rate that applied to it, then switch.
+        self._tick(dt_util.utcnow())
+        if self._take_rate(event.data["new_state"]):
+            self._write()
 
     @callback
     def _tick(self, now: datetime) -> None:
@@ -400,6 +473,7 @@ async def async_setup_entry(
     base = opts.get(CONF_NAME) or DEFAULT_NAME
     currency = opts.get(CONF_CURRENCY) or DEFAULT_CURRENCY
     standing = float(opts.get(CONF_STANDING_CHARGE) or 0)
+    standing_entity = opts.get(CONF_STANDING_CHARGE_ENTITY) or None
     levy = float(opts.get(CONF_LEVY_AMOUNT) or 0)
     levy_name = opts.get(CONF_LEVY_NAME) or DEFAULT_LEVY_NAME
     vat = float(opts.get(CONF_VAT_RATE) or 0)
@@ -448,9 +522,14 @@ async def async_setup_entry(
         entities += [energy, sensor]
         kinds.append(KIND_LEVY)
 
-    if standing > 0:
+    if standing > 0 or standing_entity:
         sensor = StandingChargeSensor(
-            entry, f"{base} Standing Charge Cost", currency, device, standing
+            entry,
+            f"{base} Standing Charge Cost",
+            currency,
+            device,
+            standing,
+            standing_entity,
         )
         if vat_sensor:
             sensor.add_listener(vat_sensor.add_net)
@@ -458,7 +537,11 @@ async def async_setup_entry(
         energy = PhantomEnergySensor(
             entry,
             KIND_STANDING,
-            titled("Standing Charge", f"{standing:g} {currency}/day"),
+            # A rate that follows a sensor changes under the name, so it stays out of it.
+            titled(
+                "Standing Charge",
+                "" if standing_entity else f"{standing:g} {currency}/day",
+            ),
             device,
         )
         entities += [energy, sensor]

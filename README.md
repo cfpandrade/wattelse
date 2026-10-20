@@ -77,6 +77,7 @@ doesn't get a levy row.
 | Field | What it is |
 |---|---|
 | **Standing charge** | The fixed daily charge, **excluding tax**. Accrues continuously. |
+| **Standing charge from a sensor** | Optional. A sensor that follows your tariff instead of a number you type in — see below. |
 | **Levy** | A flat monthly fee, **excluding tax**. Defaults to Ireland's *PSO Levy*; name it whatever your bill calls it — green levy, network fee, meter rental. |
 | **VAT rate** | The percentage your supplier applies. Set it to `0` if electricity isn't taxed where you are, and no VAT line is created. |
 | **Apply VAT to** | Optional. Leave it empty — see below. |
@@ -91,6 +92,24 @@ doesn't get a levy row.
 > 2. **Set _Charges start on_** to the day your tariff began, or the charges start at zero
 >    today and no past billing period will add up.
 > 3. **The export credit is never taxed**, and you don't have to configure that.
+
+### Following your supplier's tariff
+
+If an integration already tracks your tariff — the
+[Octopus Energy](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy) one publishes
+the current standing charge as a sensor, for example — pick that sensor in **Standing
+charge from a sensor** and you never have to retype the rate when it changes. It has to be
+in your currency per day, without VAT.
+
+A rate change only affects what accrues after it: the time up to the change is settled at
+the old rate first. While the sensor has no value — during startup, or when the supplier's
+API is down — the last good rate carries on, and the **Standing charge** number is only
+used until the sensor has given one. The cost sensor shows the rate it is charging as
+`rate_per_day`, and since the rate moves, it is left out of the source name.
+
+Unit rates don't go through WattElse at all: the Energy dashboard itself can follow a price
+sensor. Pick *Use an entity with current price* on each grid consumption source and point it
+at your supplier's current rate sensor.
 
 ### Who gets taxed
 
@@ -181,6 +200,9 @@ Two caveats. Your **consumption statistics have to reach back that far**, since 
 computed from them; if your history starts in March, don't ask for January. And your **kWh
 prices must have been the net ones all along** — WattElse taxes what the recorder stored,
 so a period recorded at tax-inclusive prices gets taxed on top.
+
+A standing charge that follows a sensor is rebuilt at the rate that sensor shows today, since
+tariff sensors rarely keep months of history.
 
 If you need finer control — a rate that changed mid-history, say — import the statistics
 yourself with [import_statistics](https://github.com/klausj1/homeassistant-statistics), or

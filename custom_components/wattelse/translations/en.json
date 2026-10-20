@@ -8,6 +8,7 @@
           "name": "Name",
           "currency": "Currency",
           "standing_charge": "Standing charge (per day)",
+          "standing_charge_entity": "Standing charge from a sensor (optional)",
           "levy_name": "Levy name",
           "levy_amount": "Levy (per month)",
           "vat_rate": "VAT rate (%)",
@@ -17,6 +18,7 @@
         },
         "data_description": {
           "standing_charge": "The fixed daily charge, excluding VAT. It accrues continuously.",
+          "standing_charge_entity": "A sensor that follows your tariff, such as the current standing charge one from a supplier integration (Octopus Energy, for example), in your currency per day and without VAT. WattElse then charges whatever it says, and a change of rate only affects the days after it. The number above is only used until that sensor has a value.",
           "levy_amount": "A flat monthly fee such as Ireland's PSO levy, excluding VAT. It is charged in full when the month rolls over, never spread across the days, because a monthly fee prorated by day can never be right for both 30- and 31-day billing cycles.",
           "vat_sources": "Leave this empty and WattElse works it out on its own: it taxes every grid consumption source on the Energy dashboard, and never the export credit. Only fill it in if you want to override that -- for instance if one of your sources is billed tax-free.",
           "show_rate_in_name": "Puts the rate into the name shown on the Energy dashboard, so the Sources list documents the tariff it is charging you.",
@@ -34,6 +36,7 @@
           "name": "Name",
           "currency": "Currency",
           "standing_charge": "Standing charge (per day)",
+          "standing_charge_entity": "Standing charge from a sensor (optional)",
           "levy_name": "Levy name",
           "levy_amount": "Levy (per month)",
           "vat_rate": "VAT rate (%)",
